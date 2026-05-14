@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchTasksFromServer, pushTasksToServer } from "./api/tasksApi";
+import { fetchTasksFromServer, pushTasksToServer, type SyncAuth } from "./api/tasksApi";
 import { Focus } from "./components/Focus";
 import { IconPlus, IconSpark } from "./components/Icons";
 import { Sheet } from "./components/Sheet";
 import { Stats } from "./components/Stats";
 import { TabBar } from "./components/TabBar";
+import { TelegramLogin } from "./components/TelegramLogin";
 import { TaskEditor } from "./components/TaskEditor";
 import { TaskList } from "./components/TaskList";
 import { TopBar } from "./components/TopBar";
 import { getDefaultSettings, loadState, saveState } from "./storage/persist";
+import { loadTelegramLogin, saveTelegramLogin, type TelegramLoginData } from "./storage/telegramLogin";
 import { hapticNotify, hapticSelection, setHapticsEnabled } from "./telegram/haptics";
 import { getWebApp } from "./telegram/getWebApp";
 import type { Settings, TabKey, Task } from "./types";
@@ -59,8 +61,18 @@ export default function App() {
 
   const tg = getWebApp();
   const initData = tg?.initData ?? "";
-  const canSync = Boolean(initData);
+  const [loginData, setLoginData] = useState<TelegramLoginData | null>(() => loadTelegramLogin());
+
+  const auth = useMemo<SyncAuth | null>(() => {
+    if (initData) return { type: "initData", initData };
+    if (loginData) return { type: "login", loginData };
+    return null;
+  }, [initData, loginData]);
+
+  const canSync = Boolean(auth);
   const canSendData = Boolean(tg?.sendData);
+  const botUsername = String((import.meta as any).env?.VITE_TG_BOT_USERNAME ?? "").trim();
+  const user = tg?.initDataUnsafe?.user ?? loginData ?? null;
 
   const [sync, setSync] = useState<{
     state: "idle" | "syncing" | "ok" | "error";
@@ -81,10 +93,10 @@ export default function App() {
   }, [tasks, settings]);
 
   const pullFromServer = useCallback(async () => {
-    if (!canSync) return;
+    if (!auth) return;
     setSync({ state: "syncing", message: "Downloading...", lastAt: sync.lastAt });
     try {
-      const serverTasks = await fetchTasksFromServer(initData, settings.apiBaseUrl);
+      const serverTasks = await fetchTasksFromServer(auth, settings.apiBaseUrl);
       setTasks(serverTasks);
       setSync({ state: "ok", message: "Downloaded", lastAt: Date.now() });
       hapticNotify("success");
@@ -92,18 +104,18 @@ export default function App() {
       setSync({ state: "error", message: String(e?.message ?? e), lastAt: sync.lastAt });
       hapticNotify("error");
     }
-  }, [canSync, initData, settings.apiBaseUrl, sync.lastAt]);
+  }, [auth, settings.apiBaseUrl, sync.lastAt]);
 
   const pushToServer = useCallback(
     async (reason: "auto" | "manual") => {
-      if (!canSync) return;
+      if (!auth) return;
       setSync({
         state: "syncing",
         message: reason === "auto" ? "Auto sync..." : "Uploading...",
         lastAt: sync.lastAt
       });
       try {
-        await pushTasksToServer(initData, settings.apiBaseUrl, tasksRef.current);
+        await pushTasksToServer(auth, settings.apiBaseUrl, tasksRef.current);
         setSync({ state: "ok", message: "Synced", lastAt: Date.now() });
         if (reason === "manual") hapticNotify("success");
       } catch (e: any) {
@@ -111,17 +123,17 @@ export default function App() {
         if (reason === "manual") hapticNotify("error");
       }
     },
-    [canSync, initData, settings.apiBaseUrl, sync.lastAt]
+    [auth, settings.apiBaseUrl, sync.lastAt]
   );
 
   useEffect(() => {
     if (!settings.autoSync) return;
-    if (!canSync) return;
+    if (!auth) return;
     const t = window.setTimeout(() => {
       void pushToServer("auto");
     }, 1200);
     return () => window.clearTimeout(t);
-  }, [tasks, settings.autoSync, canSync, pushToServer]);
+  }, [tasks, settings.autoSync, auth, pushToServer]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -279,6 +291,7 @@ export default function App() {
       <TopBar
         title="ToDo Mini App"
         subtitle={subtitle}
+        user={user}
         right={
           <button className="btn ghost" onClick={() => setSettingsOpen(true)} type="button">
             <span className="row gapSm">
@@ -379,8 +392,45 @@ export default function App() {
           <div className="card">
             <div className="rowBetween">
               <div className="kpiLabel">Server Sync</div>
-              <div className="chip tiny">{canSync ? "initData: OK" : "initData: yo'q"}</div>
+              <div className="chip tiny">
+                {initData ? "initData: OK" : loginData ? "login: OK" : "auth: none"}
+              </div>
             </div>
+            {!initData ? (
+              <div className="muted" style={{ marginTop: 8 }}>
+                Telegram ichida ochilmagan. Browser uchun Telegram login kerak.
+              </div>
+            ) : null}
+            {!initData && !loginData ? (
+              <div style={{ marginTop: 10 }}>
+                {botUsername ? (
+                  <TelegramLogin
+                    botUsername={botUsername}
+                    onAuth={(data) => {
+                      setLoginData(data);
+                      saveTelegramLogin(data);
+                      hapticNotify("success");
+                    }}
+                  />
+                ) : (
+                  <div className="muted">`VITE_TG_BOT_USERNAME` yo'q (Vite env).</div>
+                )}
+              </div>
+            ) : null}
+            {!initData && loginData ? (
+              <div className="row gap" style={{ marginTop: 10 }}>
+                <button
+                  className="btn ghost"
+                  type="button"
+                  onClick={() => {
+                    setLoginData(null);
+                    saveTelegramLogin(null);
+                  }}
+                >
+                  Logout
+                </button>
+              </div>
+            ) : null}
             <div className="muted">
               Status: {sync.state}
               {sync.message ? ` • ${sync.message}` : ""} • Last: {lastSyncLabel}

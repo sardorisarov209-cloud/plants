@@ -15,6 +15,13 @@ cmd /c npm run dev
 
 Brauzer: `http://localhost:5173`
 
+Browser'da (Telegram ichida emas) server sync ishlashi uchun Telegram Login Widget qo'shildi.
+Root papkada `.env` (yoki hosting env) ga bot username yozing:
+
+```bash
+VITE_TG_BOT_USERNAME=YourBotUserName
+```
+
 ## 2) Backend (Node/Express)
 
 ```bat
@@ -40,6 +47,11 @@ Bot javob berishi uchun bot process ham ishlashi kerak:
 ```bat
 cmd /c npm --prefix server run bot:dev
 ```
+
+Bot komandalar:
+
+- `/tasks` - tasklar soni
+- `/clear_done` - done tasklarni o'chirish
 
 Eslatma: `APP_URL` HTTPS bo'lishi shart (oddiy `localhost` production token bilan ishlamaydi).
 

@@ -1,4 +1,9 @@
 import type { Task } from "../types";
+import type { TelegramLoginData } from "../storage/telegramLogin";
+
+export type SyncAuth =
+  | { type: "initData"; initData: string }
+  | { type: "login"; loginData: TelegramLoginData };
 
 function buildUrl(apiBaseUrl: string, path: string) {
   const base = apiBaseUrl.trim();
@@ -22,13 +27,16 @@ async function readJsonOrThrow(res: Response) {
   return json;
 }
 
-export async function fetchTasksFromServer(initData: string, apiBaseUrl: string) {
+function authHeaders(auth: SyncAuth): Record<string, string> {
+  if (auth.type === "initData") return { "X-TG-Init-Data": auth.initData };
+  return { "X-TG-Login": JSON.stringify(auth.loginData) };
+}
+
+export async function fetchTasksFromServer(auth: SyncAuth, apiBaseUrl: string) {
   const url = buildUrl(apiBaseUrl, "/api/tasks");
   const res = await fetch(url, {
     method: "GET",
-    headers: {
-      "X-TG-Init-Data": initData
-    }
+    headers: authHeaders(auth)
   });
   const json = await readJsonOrThrow(res);
   const tasks = Array.isArray(json?.tasks) ? (json.tasks as Task[]) : [];
@@ -36,7 +44,7 @@ export async function fetchTasksFromServer(initData: string, apiBaseUrl: string)
 }
 
 export async function pushTasksToServer(
-  initData: string,
+  auth: SyncAuth,
   apiBaseUrl: string,
   tasks: Task[]
 ) {
@@ -45,10 +53,9 @@ export async function pushTasksToServer(
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      "X-TG-Init-Data": initData
+      ...authHeaders(auth)
     },
     body: JSON.stringify({ tasks })
   });
   await readJsonOrThrow(res);
 }
-

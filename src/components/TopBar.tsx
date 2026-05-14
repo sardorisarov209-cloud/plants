@@ -1,17 +1,16 @@
 import React from "react";
-import { getWebApp } from "../telegram/getWebApp";
 
 export function TopBar({
   title,
   subtitle,
-  right
+  right,
+  user
 }: {
   title: string;
   subtitle: string;
   right?: React.ReactNode;
+  user?: { first_name?: string; username?: string } | null;
 }) {
-  const tg = getWebApp();
-  const user = tg?.initDataUnsafe?.user;
   const name = user?.first_name ? `${user.first_name}` : "Guest";
   const uname = user?.username ? `@${user.username}` : "";
 
@@ -31,4 +30,3 @@ export function TopBar({
     </div>
   );
 }
-

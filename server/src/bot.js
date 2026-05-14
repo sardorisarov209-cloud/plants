@@ -1,4 +1,6 @@
 import { Markup, Telegraf } from "telegraf";
+import { pathToFileURL } from "node:url";
+import { readUserTasks, writeUserTasks } from "./storage.js";
 
 function mustEnv(name) {
   const value = process.env[name];
@@ -7,7 +9,7 @@ function mustEnv(name) {
 }
 
 function getAppUrl() {
-  return (process.env.APP_URL || "").trim();
+  return (process.env.APP_URL || "https://to-do-seven-rouge.vercel.app/").trim();
 }
 
 function appKeyboard(appUrl) {
@@ -40,7 +42,6 @@ export async function launchBot() {
     // eslint-disable-next-line no-console
     console.error("BOT_ERROR", err, { updateType: ctx.updateType });
   });
-
   // If a webhook was set earlier, long polling won't work until it's removed.
   await bot.telegram.deleteWebhook({ drop_pending_updates: true }).catch(() => {});
 
@@ -71,6 +72,34 @@ export async function launchBot() {
       return;
     }
     await ctx.reply("Mini App:", appKeyboard(appUrl));
+  });
+
+  bot.command("tasks", async (ctx) => {
+    const userId = String(ctx.from?.id ?? "");
+    if (!userId) {
+      await ctx.reply("User not found.");
+      return;
+    }
+    const { tasks, meta } = await readUserTasks(userId);
+    const done = tasks.filter((t) => t?.done).length;
+    const total = tasks.length;
+    const active = total - done;
+    const updated = meta?.updatedAt ? new Date(meta.updatedAt).toLocaleString() : "never";
+    await ctx.reply(`Tasks: ${active} active, ${done} done (total ${total})\nUpdated: ${updated}`);
+  });
+
+  bot.command("clear_done", async (ctx) => {
+    const userId = String(ctx.from?.id ?? "");
+    if (!userId) {
+      await ctx.reply("User not found.");
+      return;
+    }
+    const { tasks } = await readUserTasks(userId);
+    const before = tasks.length;
+    const next = tasks.filter((t) => !t?.done);
+    const removed = before - next.length;
+    await writeUserTasks(userId, next);
+    await ctx.reply(`Done tasks removed: ${removed}`);
   });
 
   bot.on("text", async (ctx) => {
@@ -106,7 +135,13 @@ export async function launchBot() {
   process.once("SIGTERM", () => bot.stop("SIGTERM"));
 }
 
-if (import.meta.main) {
+function isMain() {
+  const main = process.argv[1];
+  if (!main) return false;
+  return import.meta.url === pathToFileURL(main).href;
+}
+
+if (isMain()) {
   launchBot().catch((e) => {
     // eslint-disable-next-line no-console
     console.error("BOT_START_FAILED", e?.message ?? e);
