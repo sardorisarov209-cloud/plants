@@ -171,11 +171,11 @@ export async function launchBot() {
     const message = [
       "✨ *TASK STATISTIKA* ✨",
       "",
-      `📊 Jami tasklar: ${total}",
-      `🟢 Aktiv: ${active}",
-      `✅ Bajarilgan: ${done}",
+      `📊 Jami tasklar: ${total}`,
+      `🟢 Aktiv: ${active}`,
+      `✅ Bajarilgan: ${done}`,
       "",
-      `⏱️ Oxirgi o'zgarish: ${updated}",
+      `⏱️ Oxirgi o'zgarish: ${updated}`,
       "",
       "_Mini App'da yangi task qo'shish uchun /app bosing_"
     ].join("\n");
