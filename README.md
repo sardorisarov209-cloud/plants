@@ -51,7 +51,18 @@ cmd /c npm --prefix server run bot:dev
 Bot komandalar:
 
 - `/tasks` - tasklar soni
+- `/reminders` - eslatmalar ro'yxati
 - `/clear_done` - done tasklarni o'chirish
+
+### Reminder (Eslatma) Xususiyati
+
+Tasks'ni tahrirlaganda **Reminder** vaqtini o'rnatish mumkin. Bot har 30 sekundda check qiladi va vaqti kelganda Telegram bilan to'g'ridan-to'g'ri xabar yuboradi.
+
+Features:
+- Task'da reminder vaqtini o'rnatish
+- Bot avtomatik xabar yuboradi
+- `/reminders` buyrug'i bilan barcha eslatmalarni ko'rish
+- Eslatma jo'natilganidan keyin `remindedAt` field qayta yuklanmaydi
 
 Eslatma: `APP_URL` HTTPS bo'lishi shart (oddiy `localhost` production token bilan ishlamaydi).
 

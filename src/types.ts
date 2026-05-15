@@ -15,6 +15,8 @@ export interface Task {
   tags: string[];
   priority: Priority;
   dueAt: number | null;
+  remindAt: number | null;
+  remindedAt: number | null;
   pinned: boolean;
   done: boolean;
   createdAt: number;

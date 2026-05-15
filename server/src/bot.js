@@ -1,6 +1,64 @@
 import { Markup, Telegraf } from "telegraf";
 import { pathToFileURL } from "node:url";
 import { readUserTasks, writeUserTasks } from "./storage.js";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const dataDir = path.resolve(__dirname, "..", "data");
+
+async function getAllUserIds() {
+  try {
+    const files = await fs.readdir(dataDir);
+    return files
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => f.replace(".json", ""));
+  } catch {
+    return [];
+  }
+}
+
+async function checkAndSendReminders(bot) {
+  const now = Date.now();
+  const userIds = await getAllUserIds();
+
+  for (const userId of userIds) {
+    try {
+      const { tasks } = await readUserTasks(userId);
+      let updated = false;
+
+      for (const task of tasks) {
+        if (
+          task.remindAt &&
+          task.remindAt <= now &&
+          !task.remindedAt &&
+          !task.done
+        ) {
+          const message = `🔔 Eslatma: *${task.title}*\n\nVaqti: ${new Date(task.remindAt).toLocaleString("uz-UZ")}`;
+          try {
+            await bot.telegram.sendMessage(userId, message, {
+              parse_mode: "Markdown"
+            });
+            task.remindedAt = now;
+            updated = true;
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.error(`Failed to send reminder to ${userId}:`, err.message);
+          }
+        }
+      }
+
+      if (updated) {
+        await writeUserTasks(userId, tasks);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`Error checking reminders for user ${userId}:`, err.message);
+    }
+  }
+}
 
 function mustEnv(name) {
   const value = process.env[name];
@@ -25,6 +83,9 @@ function helpText(appUrl) {
     "",
     "/start - menu",
     "/app - open Mini App",
+    "/tasks - tasks soni",
+    "/reminders - eslatmalar",
+    "/clear_done - done tasklarni o'chirish",
     "/help - help",
     "",
     appUrl
@@ -35,7 +96,7 @@ function helpText(appUrl) {
 }
 
 export async function launchBot() {
-  const token = mustEnv("BOT_TOKEN");
+  const token = ("8952901094:AAHzuj4S8e7c3JLS1FWCEMSM63eP11rp_Tg");
   const bot = new Telegraf(token);
 
   bot.catch((err, ctx) => {
@@ -88,6 +149,32 @@ export async function launchBot() {
     await ctx.reply(`Tasks: ${active} active, ${done} done (total ${total})\nUpdated: ${updated}`);
   });
 
+  bot.command("reminders", async (ctx) => {
+    const userId = String(ctx.from?.id ?? "");
+    if (!userId) {
+      await ctx.reply("User not found.");
+      return;
+    }
+    const { tasks } = await readUserTasks(userId);
+    const reminders = tasks.filter((t) => t?.remindAt && !t?.done);
+
+    if (reminders.length === 0) {
+      await ctx.reply("Hech qanday eslatma yo'q.");
+      return;
+    }
+
+    const sortedReminders = reminders.sort((a, b) => (a.remindAt ?? 0) - (b.remindAt ?? 0));
+    const text = sortedReminders
+      .map((t) => {
+        const remindDate = new Date(t.remindAt).toLocaleString("uz-UZ");
+        const status = t.remindedAt ? "✅" : "⏰";
+        return `${status} ${t.title}\n   📅 ${remindDate}`;
+      })
+      .join("\n\n");
+
+    await ctx.reply(`🔔 Eslatmalar:\n\n${text}`, { parse_mode: "Markdown" });
+  });
+
   bot.command("clear_done", async (ctx) => {
     const userId = String(ctx.from?.id ?? "");
     if (!userId) {
@@ -131,8 +218,19 @@ export async function launchBot() {
   // eslint-disable-next-line no-console
   console.log("Bot started (long polling)");
 
-  process.once("SIGINT", () => bot.stop("SIGINT"));
-  process.once("SIGTERM", () => bot.stop("SIGTERM"));
+  // Start reminder checker - check every 30 seconds
+  const reminderInterval = setInterval(async () => {
+    await checkAndSendReminders(bot);
+  }, 30000);
+
+  process.once("SIGINT", () => {
+    clearInterval(reminderInterval);
+    bot.stop("SIGINT");
+  });
+  process.once("SIGTERM", () => {
+    clearInterval(reminderInterval);
+    bot.stop("SIGTERM");
+  });
 }
 
 function isMain() {

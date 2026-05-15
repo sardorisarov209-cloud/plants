@@ -25,6 +25,8 @@ function newTask(): Task {
     tags: [],
     priority: "medium",
     dueAt: null,
+    remindAt: null,
+    remindedAt: null,
     pinned: false,
     done: false,
     createdAt: now,

@@ -30,6 +30,9 @@ export function TaskEditor({
   const [due, setDue] = useState<string>(
     initial.dueAt ? toDatetimeLocalValue(initial.dueAt) : ""
   );
+  const [remind, setRemind] = useState<string>(
+    initial.remindAt ? toDatetimeLocalValue(initial.remindAt) : ""
+  );
   const [pinned, setPinned] = useState(initial.pinned);
   const [subtasks, setSubtasks] = useState<Subtask[]>(initial.subtasks ?? []);
 
@@ -45,6 +48,7 @@ export function TaskEditor({
 
         const now = Date.now();
         const dueAt = due ? fromDatetimeLocalValue(due) : null;
+        const remindAt = remind ? fromDatetimeLocalValue(remind) : null;
 
         onSave({
           ...initial,
@@ -53,6 +57,7 @@ export function TaskEditor({
           tags,
           priority: priorityFrom(priority),
           dueAt,
+          remindAt,
           pinned,
           subtasks,
           updatedAt: now
@@ -93,6 +98,18 @@ export function TaskEditor({
         </label>
 
         <label className="field">
+          <div className="label">Reminder</div>
+          <input
+            className="input"
+            type="datetime-local"
+            value={remind}
+            onChange={(e) => setRemind(e.target.value)}
+          />
+        </label>
+      </div>
+
+      <div className="grid2">
+        <label className="field" style={{ gridColumn: "1 / -1" }}>
           <div className="label">Priority</div>
           <select
             className="input"
