@@ -116,10 +116,21 @@ export async function launchBot() {
       await ctx.reply(helpText(""));
       return;
     }
-    await ctx.reply(
-      "Assalomu alaykum! Mini App'ni ochish uchun tugmani bosing:",
-      appKeyboard(appUrl)
-    );
+    
+    const photoUrl = "https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=500&h=500&fit=crop";
+    
+    try {
+      await ctx.replyWithPhoto(photoUrl, {
+        caption: "Assalomu alaykum! 👋 Mini App'ni ochish uchun tugmani bosing:",
+        reply_markup: appKeyboard(appUrl).reply_markup
+      });
+    } catch {
+      // Agar rasm yuklanmasa, oddiy xabar yuborish
+      await ctx.reply(
+        "Assalomu alaykum! Mini App'ni ochish uchun tugmani bosing:",
+        appKeyboard(appUrl)
+      );
+    }
   });
 
   bot.command("help", async (ctx) => {
@@ -132,7 +143,17 @@ export async function launchBot() {
       await ctx.reply("APP_URL yo'q. server/.env ichida APP_URL=... yozing (HTTPS).");
       return;
     }
-    await ctx.reply("Mini App:", appKeyboard(appUrl));
+    
+    const photoUrl = "https://images.unsplash.com/photo-1552664730-d307ca884978?w=500&h=500&fit=crop";
+    
+    try {
+      await ctx.replyWithPhoto(photoUrl, {
+        caption: "📱 Mini App:",
+        reply_markup: appKeyboard(appUrl).reply_markup
+      });
+    } catch {
+      await ctx.reply("Mini App:", appKeyboard(appUrl));
+    }
   });
 
   bot.command("tasks", async (ctx) => {
