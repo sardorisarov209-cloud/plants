@@ -13,9 +13,12 @@
   gap: 12px;
   padding: 12px;
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--bg2) 78%, transparent);
-  border: 1px solid color-mix(in srgb, var(--bg2) 62%, transparent);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 16px 44px -28px var(--shadow);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transition: all 0.3s ease;
 }
 
 .task.done {

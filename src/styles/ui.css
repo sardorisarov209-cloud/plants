@@ -36,9 +36,10 @@
   gap: 8px;
   padding: 4px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--bg2) 80%, transparent);
-  border: 1px solid color-mix(in srgb, var(--bg2) 70%, transparent);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 18px 40px -24px var(--shadow);
+  backdrop-filter: blur(16px);
 }
 
 .tab {
@@ -50,12 +51,13 @@
   border-radius: 999px;
   cursor: pointer;
   font-weight: 700;
+  transition: all 0.3s ease;
 }
 
 .tab.active {
   color: var(--fg);
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  box-shadow: 0 10px 24px -18px var(--shadow);
+  background: rgba(59, 130, 246, 0.25);
+  box-shadow: 0 10px 24px -18px var(--shadow), inset 0 0 0 1px rgba(59, 130, 246, 0.3);
 }
 
 .stack {
@@ -74,26 +76,104 @@
   backdrop-filter: blur(14px);
 }
 
+/* Liquid Glass Morphism */
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 
+    0 18px 50px -28px var(--shadow),
+    inset 1px 1px rgba(255, 255, 255, 0.2),
+    inset -1px -1px rgba(0, 0, 0, 0.2);
+}
+
+.glass-panel {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.08) 0%, 
+    rgba(255, 255, 255, 0.05) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  box-shadow: 
+    0 25px 60px -30px var(--shadow),
+    inset 1px 1px rgba(255, 255, 255, 0.25),
+    inset -1px -1px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+}
+
+.glass-surface {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 12px;
+}
+
+.glass-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
+  color: var(--fg);
+  font-weight: 700;
+  backdrop-filter: blur(12px);
+  transition: all 0.3s ease;
+}
+
+.glass-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px rgba(59, 130, 246, 0.1);
+}
+
+.glass-btn:active {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.08);
+}
+
 .btn {
   appearance: none;
-  border: 1px solid transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
   padding: 10px 12px;
   cursor: pointer;
   font-weight: 700;
-  background: color-mix(in srgb, var(--bg2) 75%, transparent);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--fg);
+  backdrop-filter: blur(12px);
+  transition: all 0.3s ease;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .btn.primary {
   background: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 70%, #000);
   color: var(--accentText);
+  box-shadow: 0 8px 32px rgba(59, 130, 246, 0.2);
+}
+
+.btn.primary:hover {
+  background: color-mix(in srgb, var(--accent) 110%, #fff);
+  box-shadow: 0 12px 40px rgba(59, 130, 246, 0.3);
 }
 
 .btn.ghost {
   background: transparent;
-  border-color: color-mix(in srgb, var(--bg2) 65%, transparent);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.btn.ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .btn.tiny {
@@ -106,14 +186,22 @@
   width: 100%;
   padding: 11px 12px;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--bg2) 60%, transparent);
-  background: color-mix(in srgb, #000 18%, var(--bg2));
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--fg);
   outline: none;
+  backdrop-filter: blur(12px);
+  transition: all 0.3s ease;
+}
+
+.input:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
 }
 
 .input::placeholder {
-  color: color-mix(in srgb, var(--muted) 80%, transparent);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .input.search {
@@ -130,9 +218,16 @@
   gap: 8px;
   padding: 8px 10px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--bg2) 62%, transparent);
-  background: color-mix(in srgb, var(--bg2) 72%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
   font-weight: 800;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .chip.tiny {
@@ -165,12 +260,13 @@
   bottom: 0;
   max-width: 980px;
   margin: 0 auto;
-  background: color-mix(in srgb, var(--bg2) 82%, transparent);
-  border: 1px solid color-mix(in srgb, var(--bg2) 62%, transparent);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-bottom: 0;
   border-radius: 22px 22px 0 0;
   box-shadow: 0 -18px 50px -26px var(--shadow);
   overflow: hidden;
+  backdrop-filter: blur(20px);
 }
 
 .sheetHeader {

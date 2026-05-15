@@ -35,7 +35,7 @@ export function Sheet({
             onClick={onClose}
           />
           <motion.div
-            className="sheet"
+            className="sheet glass-panel"
             role="dialog"
             aria-modal="true"
             initial={reduce ? { opacity: 0 } : { y: 40, opacity: 0 }}

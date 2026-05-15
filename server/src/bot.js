@@ -166,8 +166,21 @@ export async function launchBot() {
     const done = tasks.filter((t) => t?.done).length;
     const total = tasks.length;
     const active = total - done;
-    const updated = meta?.updatedAt ? new Date(meta.updatedAt).toLocaleString() : "never";
-    await ctx.reply(`Tasks: ${active} active, ${done} done (total ${total})\nUpdated: ${updated}`);
+    const updated = meta?.updatedAt ? new Date(meta.updatedAt).toLocaleString("uz-UZ") : "hech qachon";
+    
+    const message = [
+      "✨ *TASK STATISTIKA* ✨",
+      "",
+      `📊 Jami tasklar: ${total}",
+      `🟢 Aktiv: ${active}",
+      `✅ Bajarilgan: ${done}",
+      "",
+      `⏱️ Oxirgi o'zgarish: ${updated}",
+      "",
+      "_Mini App'da yangi task qo'shish uchun /app bosing_"
+    ].join("\n");
+    
+    await ctx.reply(message, { parse_mode: "Markdown" });
   });
 
   bot.command("reminders", async (ctx) => {
@@ -180,20 +193,27 @@ export async function launchBot() {
     const reminders = tasks.filter((t) => t?.remindAt && !t?.done);
 
     if (reminders.length === 0) {
-      await ctx.reply("Hech qanday eslatma yo'q.");
+      await ctx.reply("✨ Hech qanday eslatma yo'q. Mini App'da o'rnatib ko'ring! ✨");
       return;
     }
 
     const sortedReminders = reminders.sort((a, b) => (a.remindAt ?? 0) - (b.remindAt ?? 0));
-    const text = sortedReminders
-      .map((t) => {
-        const remindDate = new Date(t.remindAt).toLocaleString("uz-UZ");
-        const status = t.remindedAt ? "✅" : "⏰";
-        return `${status} ${t.title}\n   📅 ${remindDate}`;
-      })
-      .join("\n\n");
+    const lines = sortedReminders.map((t) => {
+      const remindDate = new Date(t.remindAt).toLocaleString("uz-UZ");
+      const status = t.remindedAt ? "✅" : "⏰";
+      const icon = t.priority === "high" ? "🔴" : t.priority === "medium" ? "🟡" : "🟢";
+      return `${status} ${icon} *${t.title}*\n   📅 \`${remindDate}\``;
+    });
+    
+    const message = [
+      "🔔 *ESLATMALAR* 🔔",
+      "",
+      ...lines,
+      "",
+      `_Jami: ${reminders.length} eslatma_`
+    ].join("\n\n");
 
-    await ctx.reply(`🔔 Eslatmalar:\n\n${text}`, { parse_mode: "Markdown" });
+    await ctx.reply(message, { parse_mode: "Markdown" });
   });
 
   bot.command("clear_done", async (ctx) => {
