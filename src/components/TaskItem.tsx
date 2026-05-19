@@ -20,6 +20,13 @@ export function TaskItem({
   draggable?: boolean;
 }) {
   const dueLabel = task.dueAt ? formatCompactDateTime(task.dueAt) : "";
+  const remindLabel = task.remindAt ? formatCompactDateTime(task.remindAt) : "";
+  const remindMeta = remindLabel
+    ? task.remindedAt
+      ? `Reminder sent: ${remindLabel}`
+      : `Reminder: ${remindLabel}`
+    : "";
+
   const priorityLabel =
     task.priority === "high"
       ? "HIGH"
@@ -75,13 +82,12 @@ export function TaskItem({
         {task.notes ? <div className="taskNotes">{task.notes}</div> : null}
 
         <div className="taskMeta">
-          {dueLabel ? <span className="meta">⏰ {dueLabel}</span> : null}
-          {task.tags?.length ? (
-            <span className="meta">🏷 {task.tags.join(", ")}</span>
-          ) : null}
+          {dueLabel ? <span className="meta">Due: {dueLabel}</span> : null}
+          {remindMeta ? <span className="meta">{remindMeta}</span> : null}
+          {task.tags?.length ? <span className="meta">Tags: {task.tags.join(", ")}</span> : null}
           {task.subtasks?.length ? (
             <span className="meta">
-              ✅ {task.subtasks.filter((s) => s.done).length}/{task.subtasks.length}
+              {task.subtasks.filter((subtask) => subtask.done).length}/{task.subtasks.length} subtasks
             </span>
           ) : null}
         </div>
@@ -103,4 +109,3 @@ export function TaskItem({
     </motion.li>
   );
 }
-

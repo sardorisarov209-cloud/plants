@@ -49,6 +49,12 @@ export function TaskEditor({
         const now = Date.now();
         const dueAt = due ? fromDatetimeLocalValue(due) : null;
         const remindAt = remind ? fromDatetimeLocalValue(remind) : null;
+        const reminderChanged = (initial.remindAt ?? null) !== remindAt;
+        const remindedAt = remindAt
+          ? reminderChanged
+            ? null
+            : (initial.remindedAt ?? null)
+          : null;
 
         onSave({
           ...initial,
@@ -58,6 +64,7 @@ export function TaskEditor({
           priority: priorityFrom(priority),
           dueAt,
           remindAt,
+          remindedAt,
           pinned,
           subtasks,
           updatedAt: now
