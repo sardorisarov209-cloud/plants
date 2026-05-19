@@ -104,10 +104,126 @@ async function checkAndSendReminders(bot) {
   }
 }
 
-function appKeyboard(appUrl) {
-  return Markup.keyboard([[Markup.button.webApp("Open ToDo", appUrl)]])
-    .resize()
-    .oneTime();
+const MODE_BOT_TEXT = "Oddiy bot";
+const MODE_APP_TEXT = "Mini App";
+const TASKS_TEXT = "Tasklarim";
+const REMINDERS_TEXT = "Eslatmalarim";
+const CLEAR_DONE_TEXT = "Done tasklarni tozalash";
+const HELP_TEXT = "Yordam";
+
+function mainMenuKeyboard(appUrl) {
+  const rows = [
+    [MODE_BOT_TEXT, MODE_APP_TEXT],
+    [TASKS_TEXT, REMINDERS_TEXT],
+    [CLEAR_DONE_TEXT, HELP_TEXT]
+  ];
+  if (appUrl) {
+    rows.unshift([Markup.button.webApp("Open ToDo", appUrl)]);
+  }
+  return Markup.keyboard(rows).resize();
+}
+
+function modePickerInlineKeyboard(appUrl) {
+  const buttons = [Markup.button.callback("Oddiy bot", "mode:bot")];
+  if (appUrl) {
+    buttons.push(Markup.button.callback("Mini App", "mode:app"));
+  }
+  return Markup.inlineKeyboard(buttons);
+}
+
+function botModeText() {
+  return [
+    "<b>Oddiy bot rejimi</b>",
+    "",
+    `${TASKS_TEXT} - task statistika`,
+    `${REMINDERS_TEXT} - faol eslatmalar`,
+    `${CLEAR_DONE_TEXT} - bajarilgan tasklarni tozalash`,
+    `${HELP_TEXT} - barcha buyruqlar`
+  ].join("\n");
+}
+
+async function sendMainMenu(ctx, text, extra = {}) {
+  const appUrl = getAppUrl();
+  await ctx.reply(text, {
+    ...extra,
+    reply_markup: mainMenuKeyboard(appUrl).reply_markup
+  });
+}
+
+async function replyOpenMiniApp(ctx) {
+  const appUrl = getAppUrl();
+  if (!appUrl) {
+    await sendMainMenu(ctx, "APP_URL topilmadi. server/.env ichida APP_URL=https://... kiriting.");
+    return;
+  }
+  await sendMainMenu(ctx, "Mini appni ochish uchun pastdagi Open ToDo tugmasini bosing.");
+}
+
+async function replyTasksStats(ctx) {
+  const userId = String(ctx.from?.id ?? "");
+  if (!userId) {
+    await sendMainMenu(ctx, "User topilmadi.");
+    return;
+  }
+
+  const { tasks, meta } = await readUserTasks(userId);
+  const done = tasks.filter((task) => task?.done).length;
+  const total = tasks.length;
+  const active = total - done;
+  const updated = meta?.updatedAt ? formatDateTime(meta.updatedAt) : "hali yoq";
+
+  const message = [
+    "<b>Task statistikasi</b>",
+    "",
+    `<b>Jami:</b> ${total}`,
+    `<b>Aktiv:</b> ${active}`,
+    `<b>Bajarilgan:</b> ${done}`,
+    `<b>Oxirgi yangilanish:</b> ${escapeHtml(updated)}`
+  ].join("\n");
+
+  await sendMainMenu(ctx, message, { parse_mode: "HTML" });
+}
+
+async function replyReminders(ctx) {
+  const userId = String(ctx.from?.id ?? "");
+  if (!userId) {
+    await sendMainMenu(ctx, "User topilmadi.");
+    return;
+  }
+
+  const { tasks } = await readUserTasks(userId);
+  const reminders = tasks
+    .filter((task) => Number.isFinite(Number(task?.remindAt)) && !task?.done)
+    .sort((a, b) => Number(a.remindAt) - Number(b.remindAt));
+
+  if (reminders.length === 0) {
+    await sendMainMenu(ctx, "Faol eslatma topilmadi. Mini app ichida reminder qoying.");
+    return;
+  }
+
+  const lines = reminders.slice(0, 15).map((task) => {
+    const title = escapeHtml(task?.title || "Task");
+    const remindAt = formatDateTime(Number(task.remindAt));
+    const status = Number.isFinite(Number(task?.remindedAt)) ? "sent" : "pending";
+    const priority = toPriorityLabel(task?.priority);
+    return `- <b>${title}</b>\n  ${escapeHtml(remindAt)} | ${status} | ${priority}`;
+  });
+
+  const header = `<b>Eslatmalar (${reminders.length})</b>`;
+  await sendMainMenu(ctx, [header, "", ...lines].join("\n"), { parse_mode: "HTML" });
+}
+
+async function replyClearDone(ctx) {
+  const userId = String(ctx.from?.id ?? "");
+  if (!userId) {
+    await sendMainMenu(ctx, "User topilmadi.");
+    return;
+  }
+  const { tasks } = await readUserTasks(userId);
+  const next = tasks.filter((task) => !task?.done);
+  const removed = tasks.length - next.length;
+  await writeUserTasks(userId, next);
+  await sendMainMenu(ctx, `Bajarilgan tasklar ochirildi: ${removed}`);
 }
 
 function helpText(appUrl) {
@@ -142,102 +258,95 @@ export async function launchBot() {
   const me = await bot.telegram.getMe();
   // eslint-disable-next-line no-console
   console.log(`Bot connected as @${me.username ?? "unknown"}`);
+  await bot.telegram
+    .setMyCommands([
+      { command: "start", description: "Menu va rejim tanlash" },
+      { command: "app", description: "Mini appni ochish" },
+      { command: "tasks", description: "Task statistikasi" },
+      { command: "reminders", description: "Faol eslatmalar" },
+      { command: "clear_done", description: "Done tasklarni tozalash" },
+      { command: "help", description: "Yordam" }
+    ])
+    .catch(() => {});
 
   bot.start(async (ctx) => {
     const appUrl = getAppUrl();
-    if (!appUrl) {
-      await ctx.reply(helpText(""));
-      return;
-    }
     await ctx.reply(
-      "Salom! Task eslatmalari ishlashi uchun shu botni bloklamang. Mini appni quyidagi tugma bilan oching.",
-      appKeyboard(appUrl)
+      "Salom. Qaysi rejimni ishlatamiz?",
+      modePickerInlineKeyboard(appUrl)
+    );
+    await sendMainMenu(
+      ctx,
+      "Pastdagi tayyor tugmalar orqali oddiy bot komandalarini ishlatishingiz mumkin."
     );
   });
 
   bot.command("help", async (ctx) => {
-    await ctx.reply(helpText(getAppUrl()));
+    await sendMainMenu(ctx, helpText(getAppUrl()));
   });
 
   bot.command("app", async (ctx) => {
-    const appUrl = getAppUrl();
-    if (!appUrl) {
-      await ctx.reply("APP_URL topilmadi. server/.env ichida APP_URL=https://... kiriting.");
-      return;
-    }
-    await ctx.reply("Mini appni ochish:", appKeyboard(appUrl));
+    await replyOpenMiniApp(ctx);
   });
 
   bot.command("tasks", async (ctx) => {
-    const userId = String(ctx.from?.id ?? "");
-    if (!userId) {
-      await ctx.reply("User topilmadi.");
-      return;
-    }
-
-    const { tasks, meta } = await readUserTasks(userId);
-    const done = tasks.filter((task) => task?.done).length;
-    const total = tasks.length;
-    const active = total - done;
-    const updated = meta?.updatedAt ? formatDateTime(meta.updatedAt) : "hali yoq";
-
-    const message = [
-      "<b>Task statistikasi</b>",
-      "",
-      `<b>Jami:</b> ${total}`,
-      `<b>Aktiv:</b> ${active}`,
-      `<b>Bajarilgan:</b> ${done}`,
-      `<b>Oxirgi yangilanish:</b> ${escapeHtml(updated)}`
-    ].join("\n");
-
-    await ctx.reply(message, { parse_mode: "HTML" });
+    await replyTasksStats(ctx);
   });
 
   bot.command("reminders", async (ctx) => {
-    const userId = String(ctx.from?.id ?? "");
-    if (!userId) {
-      await ctx.reply("User topilmadi.");
-      return;
-    }
-
-    const { tasks } = await readUserTasks(userId);
-    const reminders = tasks
-      .filter((task) => Number.isFinite(Number(task?.remindAt)) && !task?.done)
-      .sort((a, b) => Number(a.remindAt) - Number(b.remindAt));
-
-    if (reminders.length === 0) {
-      await ctx.reply("Faol eslatma topilmadi. Mini app ichida reminder qoying.");
-      return;
-    }
-
-    const lines = reminders.slice(0, 15).map((task) => {
-      const title = escapeHtml(task?.title || "Task");
-      const remindAt = formatDateTime(Number(task.remindAt));
-      const status = Number.isFinite(Number(task?.remindedAt)) ? "sent" : "pending";
-      const priority = toPriorityLabel(task?.priority);
-      return `- <b>${title}</b>\n  ${escapeHtml(remindAt)} | ${status} | ${priority}`;
-    });
-
-    const header = `<b>Eslatmalar (${reminders.length})</b>`;
-    await ctx.reply([header, "", ...lines].join("\n"), { parse_mode: "HTML" });
+    await replyReminders(ctx);
   });
 
   bot.command("clear_done", async (ctx) => {
-    const userId = String(ctx.from?.id ?? "");
-    if (!userId) {
-      await ctx.reply("User topilmadi.");
+    await replyClearDone(ctx);
+  });
+
+  bot.action("mode:bot", async (ctx) => {
+    await ctx.answerCbQuery("Oddiy bot rejimi tanlandi");
+    await sendMainMenu(ctx, botModeText(), { parse_mode: "HTML" });
+  });
+
+  bot.action("mode:app", async (ctx) => {
+    const appUrl = getAppUrl();
+    if (!appUrl) {
+      await ctx.answerCbQuery("Mini app hali sozlanmagan");
+      await sendMainMenu(ctx, "APP_URL topilmadi. server/.env ichida APP_URL=https://... kiriting.");
       return;
     }
-    const { tasks } = await readUserTasks(userId);
-    const next = tasks.filter((task) => !task?.done);
-    const removed = tasks.length - next.length;
-    await writeUserTasks(userId, next);
-    await ctx.reply(`Bajarilgan tasklar ochirildi: ${removed}`);
+    await ctx.answerCbQuery("Mini app rejimi tanlandi");
+    await sendMainMenu(ctx, "Mini appni ochish uchun pastdagi Open ToDo tugmasini bosing.");
   });
 
   bot.on("text", async (ctx) => {
-    if (ctx.message.text?.startsWith("/")) return;
-    await ctx.reply("Buyruqlar uchun /help yozing.");
+    const text = String(ctx.message.text ?? "").trim();
+    if (text.startsWith("/")) return;
+
+    if (text === MODE_BOT_TEXT) {
+      await sendMainMenu(ctx, botModeText(), { parse_mode: "HTML" });
+      return;
+    }
+    if (text === MODE_APP_TEXT) {
+      await replyOpenMiniApp(ctx);
+      return;
+    }
+    if (text === TASKS_TEXT) {
+      await replyTasksStats(ctx);
+      return;
+    }
+    if (text === REMINDERS_TEXT) {
+      await replyReminders(ctx);
+      return;
+    }
+    if (text === CLEAR_DONE_TEXT) {
+      await replyClearDone(ctx);
+      return;
+    }
+    if (text === HELP_TEXT) {
+      await sendMainMenu(ctx, helpText(getAppUrl()));
+      return;
+    }
+
+    await sendMainMenu(ctx, "Tugmalardan birini tanlang yoki /start bosing.");
   });
 
   bot.on("web_app_data", async (ctx) => {
@@ -251,10 +360,10 @@ export async function launchBot() {
     }
 
     if (parsed?.type === "export" && Array.isArray(parsed?.tasks)) {
-      await ctx.reply(`Qabul qilindi. Tasklar soni: ${parsed.tasks.length}`);
+      await sendMainMenu(ctx, `Qabul qilindi. Tasklar soni: ${parsed.tasks.length}`);
       return;
     }
-    await ctx.reply(`Data qabul qilindi: ${raw ? raw.slice(0, 400) : "(empty)"}`);
+    await sendMainMenu(ctx, `Data qabul qilindi: ${raw ? raw.slice(0, 400) : "(empty)"}`);
   });
 
   await bot.launch();

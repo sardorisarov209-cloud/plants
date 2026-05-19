@@ -7,6 +7,22 @@ Bu loyiha Telegram bot yaratadi:
 
 > Eslatma: YouTube/TikTok/Instagram kabi platformalardan “download” qilish (ayniqsa 4K) ko‘pincha ToS va mualliflik huquqlariga zid bo‘lishi mumkin. Bu repo faqat sizda ruxsat/hisob-kitob (license) bo‘lgan **to‘g‘ridan-to‘g‘ri** fayl linklari bilan ishlash uchun yozilgan.
 
+## Node.js versiya (tavsiya)
+### 1) Sozlash
+1. `.env.example` ni `.env` ga ko‘chiring
+2. `TELEGRAM_BOT_TOKEN` ni tokeningizga almashtiring
+3. (ixtiyoriy) ovozdan qidirish:
+   - `STT_BACKEND=openai`
+   - `OPENAI_API_KEY=...`
+
+### 2) O‘rnatish va ishga tushirish
+PowerShell’da ba’zi tizimlarda `npm.ps1` blok bo‘ladi — shuning uchun `npm.cmd` ishlating:
+```powershell
+npm.cmd install
+npm.cmd start
+```
+
+## Python versiya (ixtiyoriy)
 ## 1) Bot token olish
 1. Telegram’da **@BotFather** ga kiring
 2. `/newbot` -> nom bering -> token oling
@@ -31,4 +47,3 @@ Ovozli xabarlar odatda `.ogg/.opus` bo‘ladi; uni `.wav` ga aylantirish uchun `
 - Matn yuboring: “eminem lose yourself”
 - Ovozli xabar yuboring: bot matnga aylantirib qidiradi (STT yoqilgan bo‘lsa)
 - `/video https://example.com/video.mp4` (faqat direct link)
-
