@@ -106,15 +106,17 @@ async function checkAndSendReminders(bot) {
 
 const MODE_BOT_TEXT = "Oddiy bot";
 const MODE_APP_TEXT = "Mini App";
+const ADD_TASK_TEXT = "Task qo'shish";
 const TASKS_TEXT = "Tasklarim";
 const REMINDERS_TEXT = "Eslatmalarim";
 const CLEAR_DONE_TEXT = "Done tasklarni tozalash";
 const HELP_TEXT = "Yordam";
+const pendingActionByUserId = new Map();
 
 function mainMenuKeyboard(appUrl) {
   const rows = [
     [MODE_BOT_TEXT, MODE_APP_TEXT],
-    [TASKS_TEXT, REMINDERS_TEXT],
+    [ADD_TASK_TEXT, TASKS_TEXT, REMINDERS_TEXT],
     [CLEAR_DONE_TEXT, HELP_TEXT]
   ];
   if (appUrl) {
@@ -135,6 +137,7 @@ function botModeText() {
   return [
     "<b>Oddiy bot rejimi</b>",
     "",
+    `${ADD_TASK_TEXT} - yangi task yaratish`,
     `${TASKS_TEXT} - task statistika`,
     `${REMINDERS_TEXT} - faol eslatmalar`,
     `${CLEAR_DONE_TEXT} - bajarilgan tasklarni tozalash`,
@@ -148,6 +151,61 @@ async function sendMainMenu(ctx, text, extra = {}) {
     ...extra,
     reply_markup: mainMenuKeyboard(appUrl).reply_markup
   });
+}
+
+function createTaskFromTitle(title) {
+  const now = Date.now();
+  const rand = Math.random().toString(36).slice(2, 8);
+  return {
+    id: `bot_${now}_${rand}`,
+    title,
+    notes: "",
+    tags: [],
+    priority: "medium",
+    dueAt: null,
+    remindAt: null,
+    remindedAt: null,
+    pinned: false,
+    done: false,
+    createdAt: now,
+    updatedAt: now,
+    doneAt: null,
+    subtasks: []
+  };
+}
+
+async function replyAskTaskTitle(ctx) {
+  const userId = String(ctx.from?.id ?? "");
+  if (!userId) {
+    await sendMainMenu(ctx, "User topilmadi.");
+    return;
+  }
+  pendingActionByUserId.set(userId, "await_task_title");
+  await sendMainMenu(
+    ctx,
+    "Yangi task nomini yuboring. Bekor qilish uchun `cancel` deb yozing."
+  );
+}
+
+async function replyCreateTask(ctx, title) {
+  const userId = String(ctx.from?.id ?? "");
+  if (!userId) {
+    await sendMainMenu(ctx, "User topilmadi.");
+    return;
+  }
+  const trimmed = String(title ?? "").trim();
+  if (!trimmed) {
+    await sendMainMenu(ctx, "Task nomi bo'sh bo'lmasligi kerak.");
+    return;
+  }
+  const { tasks } = await readUserTasks(userId);
+  const task = createTaskFromTitle(trimmed);
+  await writeUserTasks(userId, [task, ...tasks]);
+  await sendMainMenu(
+    ctx,
+    `Task qo'shildi: <b>${escapeHtml(trimmed)}</b>\nMini app ichida ham shu task ko'rinadi.`,
+    { parse_mode: "HTML" }
+  );
 }
 
 async function replyOpenMiniApp(ctx) {
@@ -261,6 +319,7 @@ export async function launchBot() {
   await bot.telegram
     .setMyCommands([
       { command: "start", description: "Menu va rejim tanlash" },
+      { command: "add", description: "Yangi task qo'shish" },
       { command: "app", description: "Mini appni ochish" },
       { command: "tasks", description: "Task statistikasi" },
       { command: "reminders", description: "Faol eslatmalar" },
@@ -287,6 +346,10 @@ export async function launchBot() {
 
   bot.command("app", async (ctx) => {
     await replyOpenMiniApp(ctx);
+  });
+
+  bot.command("add", async (ctx) => {
+    await replyAskTaskTitle(ctx);
   });
 
   bot.command("tasks", async (ctx) => {
@@ -318,11 +381,28 @@ export async function launchBot() {
   });
 
   bot.on("text", async (ctx) => {
+    const userId = String(ctx.from?.id ?? "");
     const text = String(ctx.message.text ?? "").trim();
     if (text.startsWith("/")) return;
+    const pending = userId ? pendingActionByUserId.get(userId) : undefined;
+
+    if (pending === "await_task_title") {
+      if (text.toLowerCase() === "cancel") {
+        if (userId) pendingActionByUserId.delete(userId);
+        await sendMainMenu(ctx, "Task qo'shish bekor qilindi.");
+        return;
+      }
+      if (userId) pendingActionByUserId.delete(userId);
+      await replyCreateTask(ctx, text);
+      return;
+    }
 
     if (text === MODE_BOT_TEXT) {
       await sendMainMenu(ctx, botModeText(), { parse_mode: "HTML" });
+      return;
+    }
+    if (text === ADD_TASK_TEXT) {
+      await replyAskTaskTitle(ctx);
       return;
     }
     if (text === MODE_APP_TEXT) {

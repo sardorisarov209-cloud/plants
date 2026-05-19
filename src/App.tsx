@@ -46,6 +46,24 @@ function reorder<T extends { id: string }>(list: T[], fromId: string, toId: stri
   return next;
 }
 
+function mergeTasksByLatest(localTasks: Task[], serverTasks: Task[]) {
+  const byId = new Map<string, Task>();
+  for (const task of localTasks) {
+    byId.set(task.id, task);
+  }
+  for (const task of serverTasks) {
+    const existing = byId.get(task.id);
+    if (!existing) {
+      byId.set(task.id, task);
+      continue;
+    }
+    const existingUpdatedAt = Number(existing.updatedAt ?? 0);
+    const incomingUpdatedAt = Number(task.updatedAt ?? 0);
+    byId.set(task.id, incomingUpdatedAt >= existingUpdatedAt ? task : existing);
+  }
+  return Array.from(byId.values());
+}
+
 export default function App() {
   const [tab, setTab] = useState<TabKey>("tasks");
   const [{ tasks: initialTasks, settings: initialSettings }] = useState(() => loadState());
@@ -81,6 +99,11 @@ export default function App() {
     message: string;
     lastAt: number | null;
   }>({ state: "idle", message: "", lastAt: null });
+  const [serverMergeReady, setServerMergeReady] = useState(false);
+
+  useEffect(() => {
+    setServerMergeReady(!auth);
+  }, [auth]);
 
   useEffect(() => {
     setHapticsEnabled(settings.vibrate);
@@ -99,7 +122,7 @@ export default function App() {
     setSync({ state: "syncing", message: "Downloading...", lastAt: sync.lastAt });
     try {
       const serverTasks = await fetchTasksFromServer(auth, settings.apiBaseUrl);
-      setTasks(serverTasks);
+      setTasks((prev) => mergeTasksByLatest(prev, serverTasks));
       setSync({ state: "ok", message: "Downloaded", lastAt: Date.now() });
       hapticNotify("success");
     } catch (e: any) {
@@ -107,6 +130,37 @@ export default function App() {
       hapticNotify("error");
     }
   }, [auth, settings.apiBaseUrl, sync.lastAt]);
+
+  useEffect(() => {
+    if (!auth) return;
+    let cancelled = false;
+    const run = async () => {
+      setSync((prev) => ({
+        state: "syncing",
+        message: "Syncing from server...",
+        lastAt: prev.lastAt
+      }));
+      try {
+        const serverTasks = await fetchTasksFromServer(auth, settings.apiBaseUrl);
+        if (cancelled) return;
+        setTasks((prev) => mergeTasksByLatest(prev, serverTasks));
+        setServerMergeReady(true);
+        setSync({ state: "ok", message: "Server synced", lastAt: Date.now() });
+      } catch (e: any) {
+        if (cancelled) return;
+        setServerMergeReady(true);
+        setSync((prev) => ({
+          state: "error",
+          message: String(e?.message ?? e),
+          lastAt: prev.lastAt
+        }));
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [auth, settings.apiBaseUrl]);
 
   const pushToServer = useCallback(
     async (reason: "auto" | "manual") => {
@@ -131,11 +185,12 @@ export default function App() {
   useEffect(() => {
     if (!settings.autoSync) return;
     if (!auth) return;
+    if (!serverMergeReady) return;
     const t = window.setTimeout(() => {
       void pushToServer("auto");
     }, 1200);
     return () => window.clearTimeout(t);
-  }, [tasks, settings.autoSync, auth, pushToServer]);
+  }, [tasks, settings.autoSync, auth, pushToServer, serverMergeReady]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
